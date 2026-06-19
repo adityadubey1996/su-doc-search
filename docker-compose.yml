@@ -1,0 +1,55 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.11.1
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  pinecone-local:
+    image: ghcr.io/pinecone-io/pinecone-local:latest
+    ports:
+      - "5081:5081"
+      - "5082:5082"
+    environment:
+      - PORT=5081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5081/indexes"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      pinecone-local:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+
+volumes:
+  frontend_modules:

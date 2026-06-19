@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "su-docs-search"
+version = "0.1.0"
+description = "SearchUnify docs hybrid search"
+authors = ["You"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115"
+uvicorn = {extras = ["standard"], version = "^0.30"}
+httpx = ">=0.28.1,<1.0"
+beautifulsoup4 = "^4.12"
+lxml = "^5.2"
+opensearch-py = "^2.7"
+pinecone = "^5.3"
+google-genai = "^2.9"
+pydantic-settings = "^2.3"
+python-dotenv = "^1.0"
+markdownify = "^1.2.2"

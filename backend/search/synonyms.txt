@@ -1,0 +1,19 @@
+su, searchunify
+kcs, knowledge centered service
+content source, connector
+agentic, agent suite
+suva, virtual agent, chatbot
+nlp, natural language processing
+ml, machine learning
+sso, single sign on
+saml, security assertion markup language
+oauth, open authorization
+bots, chatbots
+api, application programming interface
+sdk, software development kit
+crm, customer relationship management
+knowledge base, knowledgebase
+ontology, semantic network
+entities, entity extraction
+intent, intention recognition
+sentiment, emotion analysis

@@ -1,0 +1,97 @@
+version: '3.8'
+
+# Production-ready Docker Compose for su-docs-search ingestion
+# Usage: docker compose -f docker-compose-ingest.yml up
+# Starts all services needed for ingestion, runs ingest, then stays alive for search API
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.11.1
+    container_name: su-docs-opensearch
+    environment:
+      - cluster.name=opensearch-cluster
+      - node.name=opensearch-node1
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_SECURITY_PLUGIN=true
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    networks:
+      - su-docs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  pinecone-local:
+    image: ghcr.io/pinecone-io/pinecone-local:latest
+    container_name: su-docs-pinecone
+    ports:
+      - "5081-5082:5081-5082"
+    networks:
+      - su-docs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    environment:
+      - LOG_LEVEL=info
+
+  # Backend API service (runs after ingest completes)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: su-docs-backend
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      pinecone-local:
+        condition: service_healthy
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENSEARCH_URL=http://opensearch:9200
+      - PINECONE_HOST=http://pinecone-local:5081
+      - PINECONE_INDEX=su-docs
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    networks:
+      - su-docs-network
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Frontend React app (optional, for UI)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: su-docs-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    networks:
+      - su-docs-network
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+
+networks:
+  su-docs-network:
+    driver: bridge
+
+volumes:
+  opensearch-data:
+    driver: local
