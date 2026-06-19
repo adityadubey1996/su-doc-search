@@ -96,15 +96,13 @@ check_requirements() {
         exit 1
     fi
 
-    # Check GEMINI_API_KEY
-    if ! grep -q "GEMINI_API_KEY=" .env || grep "GEMINI_API_KEY=" .env | grep -q "placeholder"; then
-        log_warn "GEMINI_API_KEY not set in .env or still using placeholder"
-        echo -e "  ${BLUE}Edit .env and set your actual Gemini API key${NC}"
-        read -p "Continue anyway? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+    # Check GEMINI_API_KEY (optional)
+    if ! grep -q "GEMINI_API_KEY=" .env || grep "GEMINI_API_KEY=" .env | grep -q "placeholder\|your_key"; then
+        log_warn "GEMINI_API_KEY not configured"
+        log_warn "Running in BM25-only mode (no semantic/vector search)"
+        log_warn "To enable vector search: edit .env with a Gemini API key"
+    else
+        log_info "✓ GEMINI_API_KEY is configured"
     fi
 
     log_info "✓ All requirements met"
@@ -269,7 +267,15 @@ show_summary() {
     log_info ""
     log_info "✓ Data indexed to:"
     log_info "  - OpenSearch BM25: http://localhost:9200/su-docs"
-    log_info "  - Pinecone Vectors: http://localhost:5081"
+
+    # Check if Gemini key is configured
+    if grep "GEMINI_API_KEY=" .env | grep -q "placeholder\|your_key"; then
+        log_warn "  - Vector Search: DISABLED (no Gemini API key)"
+        log_info "    To enable: set GEMINI_API_KEY in .env and re-run ingestion"
+    else
+        log_info "  - Pinecone Vectors: http://localhost:5081"
+    fi
+
     log_info ""
     log_info "Search API: http://localhost:8000/api/search?q=<query>&top_n=20"
     log_info "Web UI: http://localhost:5173"

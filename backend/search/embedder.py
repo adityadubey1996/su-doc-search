@@ -23,11 +23,18 @@ TaskType = Literal["RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"]
 _client: genai.Client | None = None
 
 
-def _get_client() -> genai.Client:
-    """Return a Gemini client (singleton, created on first call)."""
+def _get_client() -> genai.Client | None:
+    """Return a Gemini client (singleton), or None if API key is missing."""
     global _client
+    if _client is False:  # Sentinel: already checked and key is missing
+        return None
     if _client is None:
-        _client = genai.Client(api_key=get_settings().gemini_api_key)
+        settings = get_settings()
+        if not settings.gemini_api_key or settings.gemini_api_key == "placeholder":
+            logger.warning("Gemini API key not configured — semantic search disabled")
+            _client = False
+            return None
+        _client = genai.Client(api_key=settings.gemini_api_key)
     return _client
 
 
@@ -40,7 +47,12 @@ def embed_texts(
     Uses RETRIEVAL_DOCUMENT for indexing, RETRIEVAL_QUERY for query-time.
     Returns a list of 768-dim float vectors in the same order as input.
     On batch failure: logs warning and fills failed positions with zero vectors.
+    If API key is missing: returns empty list (triggers BM25-only search).
     """
+    client = _get_client()
+    if client is None:
+        return []
+
     vectors: list[list[float]] = []
 
     for i in range(0, len(texts), BATCH_SIZE):
@@ -66,6 +78,8 @@ def _embed_batch_with_retry(
     """Embed one batch, retrying up to MAX_RETRIES times on transient errors."""
     zero_vector: list[float] = [0.0] * 768
     client = _get_client()
+    if client is None:
+        return []
 
     for attempt in range(MAX_RETRIES):
         try:
